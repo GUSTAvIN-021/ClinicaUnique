@@ -1,0 +1,6 @@
+.registration { margin-bottom: 1.25rem; padding: 1rem; border: 1px solid #e0e9e6; border-radius: 12px; background: white; }
+.registration summary { cursor: pointer; font-weight: 700; color: #137866; }
+.registration form { margin-top: 1rem; }
+.professional-form textarea { width: 100%; padding: .7rem; border: 1px solid #d4dedb; border-radius: 8px; resize: vertical; font: inherit; }
+.check { display: flex; align-items: center; gap: .5rem; }.check input { width: 1rem; height: 1rem; }
+.danger-button { background: #b42318; padding: .45rem .65rem; font-size: .85rem; }

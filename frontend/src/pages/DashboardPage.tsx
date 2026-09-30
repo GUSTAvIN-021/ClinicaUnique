@@ -1,0 +1,5 @@
+import { useEffect, useState } from 'react'
+import { api } from '../services/api'
+import type { Dashboard } from '../types'
+
+export function DashboardPage() { const [data, setData] = useState<Dashboard | null>(null); const [error, setError] = useState(''); useEffect(() => { api<Dashboard>('/api/dashboard').then(setData).catch((e: Error) => setError(e.message)) }, []); if (error) return <p className="error">{error}</p>; if (!data) return <p>Carregando indicadores…</p>; const cards = [['Pacientes', data.patients], ['Profissionais ativos', data.active_professionals], ['Atendimentos hoje', data.today_appointments], ['Atendimentos na semana', data.week_appointments], ['Realizados', data.completed], ['Faltas', data.missed], ['Cancelamentos', data.cancelled]]; return <><header className="page-heading"><div><h1>Dashboard</h1><p>Visão geral da operação clínica.</p></div></header><section className="cards">{cards.map(([label, value]) => <article className="card" key={String(label)}><span>{label}</span><strong>{value}</strong></article>)}</section></> }

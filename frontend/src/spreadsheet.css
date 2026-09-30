@@ -1,0 +1,7 @@
+.entry-form { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1rem; }
+.entry-form select { border: 1px solid #d4dedb; border-radius: 8px; padding: .7rem; background: white; }
+.positive { color: #137866; }.negative { color: #b42318; }
+.professional-form { display: grid; gap: 1rem; margin-bottom: 1rem; }
+.category-picker { margin: 0; padding: 1rem; border: 1px solid #d4dedb; border-radius: 10px; background: white; }
+.category-picker legend { padding: 0 .35rem; font-weight: 700; }.category-picker > div { display: flex; flex-wrap: wrap; gap: .6rem; }
+.category { color: #3152a6; background: #eef5ff; border: 1px solid #bfd7ff; }.category.selected { color: white; background: #315fc0; border-color: #315fc0; }
