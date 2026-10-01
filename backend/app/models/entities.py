@@ -89,6 +89,7 @@ class Appointment(Timestamped):
     end_time: Mapped[time] = mapped_column(Time)
     status: Mapped[AppointmentStatus] = mapped_column(SqlEnum(AppointmentStatus), default=AppointmentStatus.AGENDADO, index=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recurrence_group_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     __table_args__ = (Index("ix_appointment_professional_slot", "professional_id", "appointment_date", "start_time", "end_time"),)
@@ -123,6 +124,16 @@ class Anamnesis(Timestamped):
     template_key: Mapped[str] = mapped_column(String(100), default="general")
     answers: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+
+
+class AnamnesisTemplate(Timestamped):
+    __tablename__ = "anamnesis_templates"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    fields: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
 
 class Reminder(Timestamped):

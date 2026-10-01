@@ -1,3 +1,8 @@
 .record-filter { display: grid; max-width: 420px; gap: .4rem; margin-bottom: 1rem; font-weight: 700; }
 .record-filter select, .record-form select { padding: .7rem; border: 1px solid #d4dedb; border-radius: 8px; background: white; font: inherit; }
 .records { display: grid; gap: .75rem; }.records article { padding: 1rem; border: 1px solid #e0e9e6; border-radius: 12px; background: white; }.records article div { display: flex; justify-content: space-between; gap: 1rem; }.records article span { color: #137866; font-weight: 700; }.records p { white-space: pre-wrap; }
+.record-author { display: block; margin-top: .5rem; color: #5d6e6a; }
+.record-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .85rem; }
+.record-edit form { display: grid; gap: .75rem; }
+.record-edit label { display: grid; gap: .35rem; font-weight: 700; }
+.record-edit input, .record-edit textarea { padding: .7rem; border: 1px solid #d4dedb; border-radius: 8px; font: inherit; }

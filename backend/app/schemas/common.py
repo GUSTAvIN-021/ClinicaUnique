@@ -1,5 +1,5 @@
 from datetime import date, datetime, time
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ORMModel(BaseModel):
@@ -50,10 +50,31 @@ class AppointmentIn(BaseModel):
     notes: str | None = None
 
 
+class AppointmentUpdateIn(BaseModel):
+    patient_id: int = Field(gt=0)
+    professional_id: int = Field(gt=0)
+    appointment_date: date
+    start_time: time
+    end_time: time
+    notes: str | None = None
+
+
+class AppointmentRecurrenceIn(AppointmentIn):
+    weeks: int = Field(ge=4, le=24)
+
+    @field_validator("weeks")
+    @classmethod
+    def allowed_recurrence_lengths(cls, value: int) -> int:
+        if value not in {4, 8, 12, 16, 24}:
+            raise ValueError("Escolha 4, 8, 12, 16 ou 24 semanas")
+        return value
+
+
 class AppointmentOut(AppointmentIn, ORMModel):
     id: int
     created_at: datetime
     updated_at: datetime
+    recurrence_group_id: str | None = None
 
 
 class AppointmentStatusIn(BaseModel):
@@ -78,10 +99,17 @@ class MedicalRecordIn(BaseModel):
     content: str = Field(min_length=1)
 
 
+class MedicalRecordUpdateIn(BaseModel):
+    record_date: date
+    category: str = Field(min_length=1, max_length=100)
+    content: str = Field(min_length=1)
+
+
 class MedicalRecordOut(MedicalRecordIn, ORMModel):
     id: int
     created_at: datetime
     updated_at: datetime
+    professional_name: str | None = None
 
 
 class AnamnesisIn(BaseModel):
@@ -91,7 +119,30 @@ class AnamnesisIn(BaseModel):
     answers: dict = Field(default_factory=dict)
 
 
+class AnamnesisUpdateIn(BaseModel):
+    answers: dict = Field(default_factory=dict)
+
+
 class AnamnesisOut(AnamnesisIn, ORMModel):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class AnamnesisTemplateField(BaseModel):
+    key: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9_]+$")
+    label: str = Field(min_length=1, max_length=150)
+    field_type: str = Field(default="text", pattern="^(text|textarea|date|boolean)$")
+    required: bool = False
+
+
+class AnamnesisTemplateIn(BaseModel):
+    category: str = Field(min_length=2, max_length=100)
+    fields: list[AnamnesisTemplateField] = Field(min_length=1, max_length=50)
+    active: bool = True
+
+
+class AnamnesisTemplateOut(AnamnesisTemplateIn, ORMModel):
     id: int
     created_at: datetime
     updated_at: datetime
