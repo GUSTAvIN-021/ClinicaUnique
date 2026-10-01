@@ -40,6 +40,17 @@ class ProfessionalOut(ProfessionalIn, ORMModel):
     updated_at: datetime
 
 
+class CategoryIn(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    active: bool = True
+
+
+class CategoryOut(CategoryIn, ORMModel):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class AppointmentIn(BaseModel):
     patient_id: int = Field(gt=0)
     professional_id: int = Field(gt=0)

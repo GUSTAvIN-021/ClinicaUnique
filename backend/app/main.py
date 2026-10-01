@@ -7,7 +7,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi import _rate_limit_exceeded_handler
 
 from app.core.config import get_settings
-from app.routers import administration, appointments, auth, dashboard, patients, professionals, records, users
+from app.routers import administration, appointments, auth, categories, dashboard, patients, professionals, records, users
 from app.routers.auth import limiter
 
 
@@ -25,6 +25,7 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.allowed_origins, allow
 app.include_router(auth.router, prefix="/api")
 app.include_router(patients.router, prefix="/api")
 app.include_router(professionals.router, prefix="/api")
+app.include_router(categories.router, prefix="/api")
 app.include_router(appointments.router, prefix="/api")
 app.include_router(records.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")

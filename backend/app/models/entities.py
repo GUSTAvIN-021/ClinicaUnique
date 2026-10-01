@@ -64,6 +64,15 @@ class Professional(Timestamped):
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 
 
+class Category(Timestamped):
+    __tablename__ = "categories"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
 class ProfessionalCategory(Base):
     __tablename__ = "professional_categories"
     id: Mapped[int] = mapped_column(primary_key=True)

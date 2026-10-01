@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import delete, select
 
 from app.dependencies.auth import CurrentUser, CsrfUser, DbSession
-from app.models.entities import Patient, Professional, ProfessionalCategory, ProfessionalPatient, Role, User
+from app.models.entities import Category, Patient, Professional, ProfessionalCategory, ProfessionalPatient, Role, User
 from app.schemas.common import ProfessionalIn, ProfessionalOut
 
 router = APIRouter(prefix="/professionals", tags=["Profissionais"])
@@ -19,6 +19,15 @@ def as_out(db: DbSession, professional: Professional) -> dict:
     return data
 
 
+def assert_valid_categories(db: DbSession, categories: list[str]) -> list[str]:
+    requested = {category.strip() for category in categories if category.strip()}
+    available = set(db.scalars(select(Category.name).where(Category.active.is_(True), Category.name.in_(requested))))
+    unknown = requested - available
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Categoria inválida ou inativa: {', '.join(sorted(unknown))}")
+    return sorted(requested)
+
+
 @router.get("", response_model=list[ProfessionalOut])
 def list_professionals(db: DbSession, user: CurrentUser, q: str | None = None, category: str | None = None):
     query = select(Professional)
@@ -31,10 +40,11 @@ def list_professionals(db: DbSession, user: CurrentUser, q: str | None = None, c
 @router.post("", response_model=ProfessionalOut, status_code=status.HTTP_201_CREATED)
 def create_professional(payload: ProfessionalIn, db: DbSession, user: CsrfUser):
     assert_admin(user)
+    categories = assert_valid_categories(db, payload.categories)
     data = payload.model_dump(exclude={"categories"})
     professional = Professional(**data)
     db.add(professional); db.flush()
-    db.add_all([ProfessionalCategory(professional_id=professional.id, name=name.strip()) for name in set(payload.categories) if name.strip()])
+    db.add_all([ProfessionalCategory(professional_id=professional.id, name=name) for name in categories])
     db.commit(); db.refresh(professional)
     return as_out(db, professional)
 
@@ -51,11 +61,12 @@ def get_professional(professional_id: int, db: DbSession, user: CurrentUser):
 @router.patch("/{professional_id}", response_model=ProfessionalOut)
 def update_professional(professional_id: int, payload: ProfessionalIn, db: DbSession, user: CsrfUser):
     assert_admin(user)
+    categories = assert_valid_categories(db, payload.categories)
     professional = db.get(Professional, professional_id)
     if not professional: raise HTTPException(status_code=404, detail="Profissional não encontrado")
     for key, value in payload.model_dump(exclude={"categories"}).items(): setattr(professional, key, value)
     db.query(ProfessionalCategory).filter(ProfessionalCategory.professional_id == professional_id).delete()
-    db.add_all([ProfessionalCategory(professional_id=professional_id, name=name.strip()) for name in set(payload.categories) if name.strip()])
+    db.add_all([ProfessionalCategory(professional_id=professional_id, name=name) for name in categories])
     db.commit(); db.refresh(professional)
     return as_out(db, professional)
 
