@@ -8,6 +8,20 @@ Este guia publica duas partes do sistema:
 
 O arquivo `render.yaml` descreve essa estrutura sem incluir senhas ou dados de pacientes.
 
+## Custo inicial estimado
+
+Para colocar a primeira versão em uso, a configuração começa no menor plano pago
+sempre ativo:
+
+- interface estática: sem custo de computação;
+- API: aproximadamente US$ 7/mês;
+- PostgreSQL gerenciado: aproximadamente US$ 6/mês;
+- total estimado: aproximadamente **US$ 13/mês**, antes de consumo excedente de
+  banda ou armazenamento.
+
+Essa é uma configuração inicial. Se a clínica crescer ou a agenda ficar lenta,
+o banco e a API podem ser aumentados pelo painel, sem perder os dados.
+
 ## Antes de começar
 
 1. Confirme que o código atual está no GitHub.

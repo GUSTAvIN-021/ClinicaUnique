@@ -5,7 +5,8 @@ databases:
   - name: unique-postgres
     databaseName: unique
     user: unique
-    plan: basic-1gb
+    # Início econômico: pode ser aumentado no painel sem recriar o banco.
+    plan: basic-256mb
 
 services:
   - type: web
