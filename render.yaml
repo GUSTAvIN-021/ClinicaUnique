@@ -12,6 +12,8 @@ services:
   - type: web
     name: unique-api
     runtime: docker
+    # Mantém a API ligada continuamente; o plano gratuito entra em suspensão.
+    plan: starter
     rootDir: backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
