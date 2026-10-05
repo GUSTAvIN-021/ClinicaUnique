@@ -16,14 +16,14 @@ limiter = Limiter(key_func=get_remote_address)
 def set_auth_cookies(response: Response, token: str) -> None:
     settings = get_settings()
     max_age = settings.access_token_expire_minutes * 60
-    response.set_cookie("access_token", token, max_age=max_age, httponly=True, secure=settings.cookie_secure, samesite="lax", path="/")
+    response.set_cookie("access_token", token, max_age=max_age, httponly=True, secure=settings.cookie_secure, samesite=settings.cookie_samesite, path="/")
     set_csrf_cookie(response)
 
 
 def set_csrf_cookie(response: Response, token: str | None = None) -> str:
     settings = get_settings()
     csrf_token = token or new_csrf_token()
-    response.set_cookie("csrf_token", csrf_token, max_age=settings.access_token_expire_minutes * 60, httponly=False, secure=settings.cookie_secure, samesite="lax", path="/")
+    response.set_cookie("csrf_token", csrf_token, max_age=settings.access_token_expire_minutes * 60, httponly=False, secure=settings.cookie_secure, samesite=settings.cookie_samesite, path="/")
     return csrf_token
 
 

@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=60, gt=0, le=1440)
     cors_origins: str = "http://localhost:5173"
     cookie_secure: bool = False
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     seed_admin_email: str = "admin@unique.local"
     seed_admin_password: str = ""
 
