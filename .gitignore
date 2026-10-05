@@ -11,3 +11,5 @@ coverage/
 .npm-cache/
 imports/*
 !imports/.gitkeep
+backups/*
+!backups/.gitkeep
