@@ -102,7 +102,7 @@ def update_anamnesis_template(template_id: int, payload: AnamnesisTemplateIn, db
     category = payload.category.strip()
     duplicate = db.scalar(select(AnamnesisTemplate).where(AnamnesisTemplate.category == category, AnamnesisTemplate.id != template_id))
     if duplicate: raise HTTPException(status_code=409, detail="Já existe um template para esta especialidade")
-    item.category = category; item.fields = [field.model_dump() for field in payload.fields]; item.active = payload.active; item.updated_by_id = user.id
+    item.category = category; item.fields = [field.model_dump() for field in payload.fields]; item.instructions = payload.instructions; item.active = payload.active; item.updated_by_id = user.id
     db.commit(); db.refresh(item)
     return item
 

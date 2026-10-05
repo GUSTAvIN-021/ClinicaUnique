@@ -150,6 +150,7 @@ class AnamnesisTemplateField(BaseModel):
 class AnamnesisTemplateIn(BaseModel):
     category: str = Field(min_length=2, max_length=100)
     fields: list[AnamnesisTemplateField] = Field(min_length=1, max_length=50)
+    instructions: str | None = None
     active: bool = True
 
 

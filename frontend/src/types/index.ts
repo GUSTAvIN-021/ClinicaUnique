@@ -9,5 +9,5 @@ export interface Category { id: number; name: string; active: boolean; created_a
 export interface MedicalRecord { id: number; patient_id: number; professional_id: number; professional_name: string | null; record_date: string; category: string; content: string; created_at: string; updated_at: string }
 export interface Availability { id: number; weekday: number; start_time: string; end_time: string }
 export interface AnamnesisField { key: string; label: string; field_type: 'text' | 'textarea' | 'date' | 'boolean'; required: boolean }
-export interface AnamnesisTemplate { id: number; category: string; fields: AnamnesisField[]; active: boolean; created_at: string; updated_at: string }
+export interface AnamnesisTemplate { id: number; category: string; fields: AnamnesisField[]; instructions: string | null; active: boolean; created_at: string; updated_at: string }
 export interface AnamnesisEntry { id: number; patient_id: number; professional_id: number | null; template_key: string; answers: Record<string, string | boolean>; created_at: string; updated_at: string }

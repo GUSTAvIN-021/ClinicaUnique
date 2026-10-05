@@ -140,9 +140,21 @@ class AnamnesisTemplate(Timestamped):
     id: Mapped[int] = mapped_column(primary_key=True)
     category: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     fields: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class LegacyImportMapping(Timestamped):
+    __tablename__ = "legacy_import_mappings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(50), default="emergent", nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    legacy_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    target_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    details: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    __table_args__ = (UniqueConstraint("source", "entity_type", "legacy_id", name="uq_legacy_import_mapping"),)
 
 
 class Reminder(Timestamped):
