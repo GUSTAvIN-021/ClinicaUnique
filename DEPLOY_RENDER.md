@@ -40,10 +40,10 @@ Não envie a pasta `imports`, a pasta `backups` nem o arquivo `backend/.env` ao 
    - `CORS_ORIGINS`: a URL HTTPS do serviço **unique-web**;
    - `SEED_ADMIN_PASSWORD`: uma senha forte e exclusiva para o administrador inicial.
 
-5. No serviço **unique-web**, defina `VITE_API_URL` como a URL da API seguida de `/api`. Exemplo:
+5. No serviço **unique-web**, defina `VITE_API_URL` como a URL raiz da API. A interface acrescenta `/api` automaticamente. Exemplo:
 
    ```text
-   https://unique-api.onrender.com/api
+   https://unique-api.onrender.com
    ```
 
 6. Clique em **Manual Deploy** no `unique-web` depois de definir `VITE_API_URL`. Isso faz a interface ser compilada com o endereço correto da API.
