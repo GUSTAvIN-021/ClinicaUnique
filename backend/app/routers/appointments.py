@@ -111,6 +111,14 @@ def list_availability(professional_id: int, db: DbSession, user: CurrentUser):
 def add_availability(professional_id: int, payload: AvailabilityIn, db: DbSession, user: CsrfUser):
     if user.role != Role.ADMIN and user.professional_id != professional_id: raise HTTPException(status_code=403, detail="Acesso não autorizado")
     if payload.start_time >= payload.end_time: raise HTTPException(status_code=422, detail="Intervalo de disponibilidade inválido")
+    overlap = db.scalar(select(ProfessionalAvailability).where(
+        ProfessionalAvailability.professional_id == professional_id,
+        ProfessionalAvailability.weekday == payload.weekday,
+        ProfessionalAvailability.start_time < payload.end_time,
+        ProfessionalAvailability.end_time > payload.start_time,
+    ))
+    if overlap:
+        raise HTTPException(status_code=409, detail="Este período se sobrepõe a um horário já configurado")
     item = ProfessionalAvailability(professional_id=professional_id, **payload.model_dump())
     db.add(item); db.commit(); db.refresh(item)
     return item
