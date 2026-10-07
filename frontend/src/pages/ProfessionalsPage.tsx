@@ -8,6 +8,7 @@ import '../professionals.css'
 type ProfessionalDraft = Pick<Professional, 'name' | 'email' | 'phone'> & { categories: string[] }
 
 const emptyDraft: ProfessionalDraft = { name: '', email: '', phone: '', categories: [] }
+const PAGE_SIZE = 15
 
 export function ProfessionalsPage() {
   const { user } = useAuth()
@@ -18,12 +19,17 @@ export function ProfessionalsPage() {
   const [options, setOptions] = useState<Category[]>([])
   const [draft, setDraft] = useState<ProfessionalDraft>(emptyDraft)
   const [editing, setEditing] = useState<Professional | null>(null)
+  const [page, setPage] = useState(1)
 
-  const load = () => api<Professional[]>('/api/professionals').then(setItems).catch((item: Error) => setError(item.message))
+  const load = () => { setPage(1); return api<Professional[]>('/api/professionals').then(setItems).catch((item: Error) => setError(item.message)) }
   useEffect(() => {
     load()
     api<Category[]>('/api/categories').then(setOptions).catch((item: Error) => setError(item.message))
   }, [])
+
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const visibleItems = items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const updateField = (field: keyof Omit<ProfessionalDraft, 'categories'>, value: string) => setDraft((current) => ({ ...current, [field]: value }))
   const toggleCategory = (name: string) => setDraft((current) => ({ ...current, categories: current.categories.includes(name) ? current.categories.filter((item) => item !== name) : [...current.categories, name] }))
@@ -67,6 +73,7 @@ export function ProfessionalsPage() {
       </form>
     </section>}
     {error && <p className="error">{error}</p>}
-    <section className="table-wrap professionals-table"><table><thead><tr><th>Profissional</th><th>Contato</th><th>Especialidades</th><th>Status</th>{isAdmin && <th>Ações</th>}</tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><strong>{item.name}</strong></td><td><span>{item.email}</span>{item.phone && <small>{item.phone}</small>}</td><td><div className="category-list">{item.categories.length ? item.categories.map((category) => <span key={category}>{category}</span>) : '—'}</div></td><td><span className={item.active ? 'status active' : 'status inactive'}>{item.active ? 'Ativo' : 'Inativo'}</span></td>{isAdmin && <td className="row-actions"><button type="button" className="secondary-button" onClick={() => startEdit(item)}>Editar</button><button type="button" className={item.active ? 'danger-button' : 'secondary-button'} onClick={() => void setActive(item.id, item.name, !item.active)}>{item.active ? 'Desativar' : 'Reativar'}</button></td>}</tr>)}</tbody></table></section>
+    <section className="table-wrap professionals-table"><table><thead><tr><th>Profissional</th><th>Contato</th><th>Especialidades</th><th>Status</th>{isAdmin && <th>Ações</th>}</tr></thead><tbody>{visibleItems.map((item) => <tr key={item.id}><td><strong>{item.name}</strong></td><td><span>{item.email}</span>{item.phone && <small>{item.phone}</small>}</td><td><div className="category-list">{item.categories.length ? item.categories.map((category) => <span key={category}>{category}</span>) : '—'}</div></td><td><span className={item.active ? 'status active' : 'status inactive'}>{item.active ? 'Ativo' : 'Inativo'}</span></td>{isAdmin && <td className="row-actions"><button type="button" className="secondary-button" onClick={() => startEdit(item)}>Editar</button><button type="button" className={item.active ? 'danger-button' : 'secondary-button'} onClick={() => void setActive(item.id, item.name, !item.active)}>{item.active ? 'Desativar' : 'Reativar'}</button></td>}</tr>)}{!visibleItems.length && <tr><td colSpan={isAdmin ? 5 : 4}>Nenhum profissional encontrado.</td></tr>}</tbody></table></section>
+    {items.length > 0 && <nav className="pagination" aria-label="Paginação de profissionais"><span>{items.length} profissionais · Página {currentPage} de {totalPages}</span><div><button type="button" className="secondary-button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Anterior</button><button type="button" className="secondary-button" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>Próxima</button></div></nav>}
   </>
 }
