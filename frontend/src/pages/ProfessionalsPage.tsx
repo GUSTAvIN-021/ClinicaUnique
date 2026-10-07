@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { api } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
-import type { Category, Professional } from '../types'
+import type { Category, Professional, User } from '../types'
 import '../patients.css'
 import '../professionals.css'
 
@@ -20,6 +20,8 @@ export function ProfessionalsPage() {
   const [draft, setDraft] = useState<ProfessionalDraft>(emptyDraft)
   const [editing, setEditing] = useState<Professional | null>(null)
   const [page, setPage] = useState(1)
+  const [createAccess, setCreateAccess] = useState(false)
+  const [accessPassword, setAccessPassword] = useState('')
 
   const load = () => { setPage(1); return api<Professional[]>('/api/professionals').then(setItems).catch((item: Error) => setError(item.message)) }
   useEffect(() => {
@@ -33,15 +35,19 @@ export function ProfessionalsPage() {
 
   const updateField = (field: keyof Omit<ProfessionalDraft, 'categories'>, value: string) => setDraft((current) => ({ ...current, [field]: value }))
   const toggleCategory = (name: string) => setDraft((current) => ({ ...current, categories: current.categories.includes(name) ? current.categories.filter((item) => item !== name) : [...current.categories, name] }))
-  const resetEditor = () => { setEditing(null); setDraft(emptyDraft); setError('') }
+  const resetEditor = () => { setEditing(null); setDraft(emptyDraft); setCreateAccess(false); setAccessPassword(''); setError('') }
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!draft.categories.length) { setError('Selecione ao menos uma especialidade.'); return }
+    if (!editing && createAccess && accessPassword.length < 12) { setError('A senha inicial do acesso deve ter pelo menos 12 caracteres.'); return }
     setSaving(true); setError('')
     const payload = { name: draft.name.trim(), email: draft.email.trim(), phone: draft.phone?.trim() || null, categories: draft.categories, active: editing?.active ?? true }
     try {
       if (editing) await api(`/api/professionals/${editing.id}`, { method: 'PATCH', body: JSON.stringify(payload) })
-      else await api('/api/professionals', { method: 'POST', body: JSON.stringify(payload) })
+      else {
+        const professional = await api<Professional>('/api/professionals', { method: 'POST', body: JSON.stringify(payload) })
+        if (createAccess) await api<User>('/api/users', { method: 'POST', body: JSON.stringify({ professional_id: professional.id, email: payload.email, password: accessPassword }) })
+      }
       resetEditor(); await load()
     } catch (item) { setError(item instanceof Error ? item.message : 'Não foi possível salvar o profissional.') }
     finally { setSaving(false) }
@@ -69,6 +75,7 @@ export function ProfessionalsPage() {
       <form className="professional-form" onSubmit={submit}>
         <div className="entry-form"><label>Nome<input value={draft.name} onChange={(event) => updateField('name', event.target.value)} required /></label><label>E-mail<input value={draft.email} onChange={(event) => updateField('email', event.target.value)} type="email" required /></label><label>Telefone<input value={draft.phone ?? ''} onChange={(event) => updateField('phone', event.target.value)} /></label></div>
         <fieldset className="category-picker"><legend>Especialidades</legend><div>{options.map((option) => <button type="button" className={draft.categories.includes(option.name) ? 'category selected' : 'category'} onClick={() => toggleCategory(option.name)} key={option.id} aria-pressed={draft.categories.includes(option.name)}>{option.name}</button>)}{!options.length && <p>Nenhuma especialidade ativa. Cadastre uma em Categorias.</p>}</div></fieldset>
+        {!editing && <fieldset className="access-picker"><legend>Acesso ao sistema</legend><label className="check"><input type="checkbox" checked={createAccess} onChange={(event) => setCreateAccess(event.target.checked)} /> Criar usuário para este profissional agora</label>{createAccess && <label>Senha inicial<input type="password" value={accessPassword} onChange={(event) => setAccessPassword(event.target.value)} minLength={12} placeholder="Mínimo de 12 caracteres" required /></label>}<small>Com o acesso criado, o profissional verá apenas a própria agenda, pacientes vinculados e prontuários autorizados.</small></fieldset>}
         <div className="form-actions"><button disabled={saving}>{saving ? 'Salvando…' : editing ? 'Salvar alterações' : 'Cadastrar profissional'}</button>{editing && <button type="button" className="secondary-button" onClick={resetEditor}>Descartar</button>}</div>
       </form>
     </section>}
