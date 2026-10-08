@@ -28,7 +28,7 @@ services:
       - key: JWT_ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: "30"
+        value: "480"
       - key: COOKIE_SECURE
         value: "true"
       - key: COOKIE_SAMESITE
@@ -45,8 +45,16 @@ services:
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     autoDeploy: true
+    routes:
+      # Mantém login e cookies no mesmo endereço do site. Esta regra deve vir
+      # antes da regra do React abaixo.
+      - type: rewrite
+        source: /api/*
+        destination: https://unique-api-zdce.onrender.com/api/*
+      # Permite abrir ou atualizar qualquer tela do React diretamente.
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
-      # Preencher com a URL HTTPS gerada para unique-api, por exemplo:
-      # https://unique-api.onrender.com
       - key: VITE_API_URL
-        sync: false
+        value: /api

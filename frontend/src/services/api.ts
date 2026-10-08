@@ -1,4 +1,6 @@
-const API = import.meta.env.VITE_API_URL ?? ''
+// Em produção, a API é reescrita pelo Render em /api. Assim os cookies de
+// sessão pertencem ao mesmo endereço do site e também funcionam no celular.
+const API = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '/api' : '')
 
 function csrf(): string | undefined { return document.cookie.split('; ').find((item) => item.startsWith('csrf_token='))?.split('=')[1] }
 
