@@ -25,6 +25,7 @@ from app.models.entities import (
 
 SOURCE = "emergent"
 REQUIRED_FILES = ("patients", "professionals", "categories", "appointments", "anamneses")
+IMPORTABLE_ENTITIES = ("categories", "professionals", "patients", "anamneses", "appointments", "records")
 
 
 class Report:
@@ -256,12 +257,15 @@ def import_templates(db, rows: list[dict[str, Any]], actor_id: int, report: Repo
         report.counts["templates_anamnese_importados_ou_mapeados"] += 1
 
 
-def import_all(exported: dict[str, list[dict[str, Any]]], apply: bool) -> Report:
+def import_all(exported: dict[str, list[dict[str, Any]]], apply: bool, included: set[str] | None = None) -> Report:
     report = Report()
+    included = included or set(IMPORTABLE_ENTITIES)
     report.counts.update({f"origem_{name}": len(rows) for name, rows in exported.items()})
     legacy_patient_ids = {str(row.get("id")) for row in exported["patients"]}
     legacy_professional_ids = {str(row.get("id")) for row in exported["professionals"]}
-    for entity, rows in (("agendamentos", exported["appointments"]), ("prontuarios", exported["records"])):
+    for entity, rows, source_name in (("agendamentos", exported["appointments"], "appointments"), ("prontuarios", exported["records"], "records")):
+        if source_name not in included:
+            continue
         report.counts[f"{entity}_pacientes_sem_origem"] = sum(str(row.get("paciente_id")) not in legacy_patient_ids for row in rows)
         report.counts[f"{entity}_profissionais_legados"] = sum(str(row.get("profissional_id")) not in legacy_professional_ids for row in rows)
     if not apply:
@@ -270,44 +274,50 @@ def import_all(exported: dict[str, list[dict[str, Any]]], apply: bool) -> Report
     with SessionLocal() as db:
         try:
             actor_id = admin_user_id(db)
-            for row in exported["categories"]:
-                name = str(row.get("nome", "")).strip()
-                legacy_id = str(row.get("id", "")).strip()
-                if name:
-                    category = category_for_name(db, name, actor_id)
-                    if legacy_id: save_mapping(db, "category", legacy_id, category.id)
-                    report.counts["categorias_importadas_ou_mapeadas"] += 1
-            for row in exported["professionals"]:
-                if row.get("id"): professional_for_row(db, row, actor_id, report)
-            for row in exported["patients"]:
-                if row.get("id"): patient_for_row(db, row, actor_id, report)
-            for row in exported["patients"]:
-                patient_id = target_id(db, "patient", row.get("id")); professional_id = target_id(db, "professional", row.get("responsavel_profissional_id"))
-                if patient_id and professional_id: link_patient_professional(db, patient_id, professional_id)
-            import_templates(db, exported["anamneses"], actor_id, report)
-            for row in exported["appointments"]:
-                legacy_id = str(row.get("id", "")).strip()
-                if not legacy_id or mapping(db, "appointment", legacy_id): continue
-                patient_id = target_id(db, "patient", row.get("paciente_id")); professional_id = target_id(db, "professional", row.get("profissional_id"))
-                if not professional_id:
-                    professional_id = professional_for_row(db, {"id": row.get("profissional_id"), "profissional_nome": row.get("profissional_nome")}, actor_id, report, orphan=True).id
-                appointment_date = parse_legacy_date(row.get("data")); start_time = parse_legacy_time(row.get("horario"))
-                if not patient_id or not appointment_date or not start_time:
-                    report.warn(f"Agendamento {legacy_id} ignorado por dados incompletos"); continue
-                duration = int(row.get("duracao") or 30); end_time = (datetime.combine(date.today(), start_time) + timedelta(minutes=duration)).time()
-                item = Appointment(patient_id=patient_id, professional_id=professional_id, appointment_date=appointment_date, start_time=start_time, end_time=end_time, status=appointment_status(row.get("status")), notes=row.get("observacoes") or None, recurrence_group_id=str(row.get("grupo_recorrencia") or "")[:36] or None, created_by_id=actor_id, updated_by_id=actor_id)
-                db.add(item); db.flush(); save_mapping(db, "appointment", legacy_id, item.id); link_patient_professional(db, patient_id, professional_id); report.counts["agendamentos_importados"] += 1
-            for row in exported["records"]:
-                legacy_id = str(row.get("id", "")).strip()
-                if not legacy_id or mapping(db, "medical_record", legacy_id): continue
-                patient_id = target_id(db, "patient", row.get("paciente_id")); professional_id = target_id(db, "professional", row.get("profissional_id"))
-                if not professional_id:
-                    professional_id = professional_for_row(db, {"id": row.get("profissional_id"), "profissional_nome": row.get("profissional_nome")}, actor_id, report, orphan=True).id
-                record_date = parse_legacy_date(row.get("data"))
-                if not patient_id or not professional_id or not record_date or not str(row.get("texto", "")).strip():
-                    report.warn(f"Prontuário {legacy_id} ignorado por dados incompletos"); continue
-                item = MedicalRecord(patient_id=patient_id, professional_id=professional_id, record_date=record_date, category="Prontuário legado", content=str(row["texto"]), created_by_id=actor_id, updated_by_id=actor_id)
-                db.add(item); db.flush(); save_mapping(db, "medical_record", legacy_id, item.id, {"legacy_attachments": row.get("anexos") or []}); link_patient_professional(db, patient_id, professional_id); report.counts["prontuarios_importados"] += 1
+            if "categories" in included:
+                for row in exported["categories"]:
+                    name = str(row.get("nome", "")).strip()
+                    legacy_id = str(row.get("id", "")).strip()
+                    if name:
+                        category = category_for_name(db, name, actor_id)
+                        if legacy_id: save_mapping(db, "category", legacy_id, category.id)
+                        report.counts["categorias_importadas_ou_mapeadas"] += 1
+            if "professionals" in included:
+                for row in exported["professionals"]:
+                    if row.get("id"): professional_for_row(db, row, actor_id, report)
+            if "patients" in included:
+                for row in exported["patients"]:
+                    if row.get("id"): patient_for_row(db, row, actor_id, report)
+                for row in exported["patients"]:
+                    patient_id = target_id(db, "patient", row.get("id")); professional_id = target_id(db, "professional", row.get("responsavel_profissional_id"))
+                    if patient_id and professional_id: link_patient_professional(db, patient_id, professional_id)
+            if "anamneses" in included:
+                import_templates(db, exported["anamneses"], actor_id, report)
+            if "appointments" in included:
+                for row in exported["appointments"]:
+                    legacy_id = str(row.get("id", "")).strip()
+                    if not legacy_id or mapping(db, "appointment", legacy_id): continue
+                    patient_id = target_id(db, "patient", row.get("paciente_id")); professional_id = target_id(db, "professional", row.get("profissional_id"))
+                    if not professional_id:
+                        professional_id = professional_for_row(db, {"id": row.get("profissional_id"), "profissional_nome": row.get("profissional_nome")}, actor_id, report, orphan=True).id
+                    appointment_date = parse_legacy_date(row.get("data")); start_time = parse_legacy_time(row.get("horario"))
+                    if not patient_id or not appointment_date or not start_time:
+                        report.warn(f"Agendamento {legacy_id} ignorado por dados incompletos"); continue
+                    duration = int(row.get("duracao") or 30); end_time = (datetime.combine(date.today(), start_time) + timedelta(minutes=duration)).time()
+                    item = Appointment(patient_id=patient_id, professional_id=professional_id, appointment_date=appointment_date, start_time=start_time, end_time=end_time, status=appointment_status(row.get("status")), notes=row.get("observacoes") or None, recurrence_group_id=str(row.get("grupo_recorrencia") or "")[:36] or None, created_by_id=actor_id, updated_by_id=actor_id)
+                    db.add(item); db.flush(); save_mapping(db, "appointment", legacy_id, item.id); link_patient_professional(db, patient_id, professional_id); report.counts["agendamentos_importados"] += 1
+            if "records" in included:
+                for row in exported["records"]:
+                    legacy_id = str(row.get("id", "")).strip()
+                    if not legacy_id or mapping(db, "medical_record", legacy_id): continue
+                    patient_id = target_id(db, "patient", row.get("paciente_id")); professional_id = target_id(db, "professional", row.get("profissional_id"))
+                    if not professional_id:
+                        professional_id = professional_for_row(db, {"id": row.get("profissional_id"), "profissional_nome": row.get("profissional_nome")}, actor_id, report, orphan=True).id
+                    record_date = parse_legacy_date(row.get("data"))
+                    if not patient_id or not professional_id or not record_date or not str(row.get("texto", "")).strip():
+                        report.warn(f"Prontuário {legacy_id} ignorado por dados incompletos"); continue
+                    item = MedicalRecord(patient_id=patient_id, professional_id=professional_id, record_date=record_date, category="Prontuário legado", content=str(row["texto"]), created_by_id=actor_id, updated_by_id=actor_id)
+                    db.add(item); db.flush(); save_mapping(db, "medical_record", legacy_id, item.id, {"legacy_attachments": row.get("anexos") or []}); link_patient_professional(db, patient_id, professional_id); report.counts["prontuarios_importados"] += 1
             db.commit()
         except Exception:
             db.rollback()
@@ -318,11 +328,23 @@ def import_all(exported: dict[str, list[dict[str, Any]]], apply: bool) -> Report
 def main() -> None:
     parser = argparse.ArgumentParser(description="Importa export JSON do sistema Emergent")
     parser.add_argument("--input-dir", type=Path, default=Path("/imports"))
+    parser.add_argument(
+        "--include",
+        default=",".join(IMPORTABLE_ENTITIES),
+        help="Entidades a importar, separadas por vírgula: " + ", ".join(IMPORTABLE_ENTITIES),
+    )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="Valida os arquivos sem escrever no banco")
     mode.add_argument("--apply", action="store_true", help="Importa os dados; use somente após o dry-run")
     args = parser.parse_args()
-    report = import_all(load_export(args.input_dir), apply=args.apply)
+    included = {item.strip().lower() for item in args.include.split(",") if item.strip()}
+    unknown = included - set(IMPORTABLE_ENTITIES)
+    if unknown:
+        parser.error("Entidade(s) desconhecida(s) em --include: " + ", ".join(sorted(unknown)))
+    required_dependencies = {"records", "appointments"} & included
+    if required_dependencies and not {"patients", "professionals"}.issubset(included):
+        parser.error("Para importar prontuários ou agendamentos, inclua também patients e professionals.")
+    report = import_all(load_export(args.input_dir), apply=args.apply, included=included)
     report.show()
     if args.dry_run:
         print("\nSimulação concluída: nenhum dado foi gravado.")
