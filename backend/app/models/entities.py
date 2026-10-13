@@ -97,6 +97,8 @@ class Appointment(Timestamped):
     start_time: Mapped[time] = mapped_column(Time)
     end_time: Mapped[time] = mapped_column(Time)
     status: Mapped[AppointmentStatus] = mapped_column(SqlEnum(AppointmentStatus), default=AppointmentStatus.AGENDADO, index=True)
+    service_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    amount_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     recurrence_group_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
