@@ -59,7 +59,6 @@ class AppointmentIn(BaseModel):
     end_time: time
     status: str = "AGENDADO"
     service_type: str | None = Field(default=None, max_length=100)
-    amount_cents: int | None = Field(default=None, ge=0)
     notes: str | None = None
 
 
@@ -70,7 +69,6 @@ class AppointmentUpdateIn(BaseModel):
     start_time: time
     end_time: time
     service_type: str | None = Field(default=None, max_length=100)
-    amount_cents: int | None = Field(default=None, ge=0)
     notes: str | None = None
 
 

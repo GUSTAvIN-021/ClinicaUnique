@@ -51,7 +51,6 @@ def materialize_recurring_appointments(
                     start_time=series.start_time,
                     end_time=series.end_time,
                     service_type=series.service_type,
-                    amount_cents=series.amount_cents,
                     notes=series.notes,
                     recurrence_group_id=series.id,
                     created_by_id=series.created_by_id,

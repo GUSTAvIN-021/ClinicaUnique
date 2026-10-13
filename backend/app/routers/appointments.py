@@ -55,7 +55,6 @@ def create_recurring_appointments(payload: AppointmentRecurrenceIn, db: DbSessio
         start_time=payload.start_time,
         end_time=payload.end_time,
         service_type=payload.service_type,
-        amount_cents=payload.amount_cents,
         notes=payload.notes,
         created_by_id=user.id,
         updated_by_id=user.id,

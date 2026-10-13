@@ -15,8 +15,10 @@ const minutes = (value: string) => { const [hour, minute] = value.slice(0, 5).sp
 const asTime = (value: number) => `${pad(Math.floor(value / 60))}:${pad(value % 60)}`
 const weekdays = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
 const appointmentServices = [
-  { id: 'SESSAO_60', label: '1 hora (2 horários) — R$ 100,00', duration: 60, amountCents: 10000 },
-  { id: 'SESSAO_30', label: '30 minutos (1 horário) — R$ 50,00', duration: 30, amountCents: 5000 },
+  { id: 'DURACAO_30', label: '30 minutos (1 horário)', duration: 30 },
+  { id: 'DURACAO_60', label: '1 hora (2 horários)', duration: 60 },
+  { id: 'DURACAO_90', label: '1 hora e 30 minutos (3 horários)', duration: 90 },
+  { id: 'DURACAO_120', label: '2 horas (4 horários)', duration: 120 },
 ]
 
 export function AgendaPage() {
@@ -89,7 +91,7 @@ export function AgendaPage() {
     event.preventDefault(); const formElement = event.currentTarget; const form = new FormData(formElement)
     if (!selectedProfessionalId || !startTime) { setError('Selecione o profissional, a data e um horário disponível.'); return }
     setSaving(true); setError('')
-    try { const service = appointmentServices.find((item) => item.id === serviceType)!; const payload = { patient_id: Number(form.get('patient_id')), professional_id: Number(selectedProfessionalId), appointment_date: formDate, start_time: startTime, end_time: asTime(minutes(startTime) + duration), service_type: service.id, amount_cents: service.amountCents, notes: form.get('notes') || null }; await api(isRecurring ? '/api/appointments/recurring' : '/api/appointments', { method: 'POST', body: JSON.stringify(payload) }); formElement.reset(); setStartTime(''); setIsRecurring(false); await loadAppointments() }
+    try { const service = appointmentServices.find((item) => item.id === serviceType)!; const payload = { patient_id: Number(form.get('patient_id')), professional_id: Number(selectedProfessionalId), appointment_date: formDate, start_time: startTime, end_time: asTime(minutes(startTime) + duration), service_type: service.id, notes: form.get('notes') || null }; await api(isRecurring ? '/api/appointments/recurring' : '/api/appointments', { method: 'POST', body: JSON.stringify(payload) }); formElement.reset(); setStartTime(''); setIsRecurring(false); await loadAppointments() }
     catch (item) { setError(item instanceof Error ? item.message : 'Não foi possível criar o agendamento.') } finally { setSaving(false) }
   }
   const beginEdit = (appointment: Appointment) => {
@@ -100,7 +102,7 @@ export function AgendaPage() {
   const saveEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (!editing || !editProfessionalId || !editStartTime) { setError('Preencha os dados do agendamento.'); return }
     const form = new FormData(event.currentTarget); setSaving(true); setError('')
-    try { const service = appointmentServices.find((item) => item.id === editServiceType)!; await api(`/api/appointments/${editing.id}`, { method: 'PATCH', body: JSON.stringify({ patient_id: Number(form.get('patient_id')), professional_id: Number(editProfessionalId), appointment_date: editDate, start_time: editStartTime, end_time: asTime(minutes(editStartTime) + editDuration), service_type: service.id, amount_cents: service.amountCents, notes: form.get('notes') || null }) }); setEditing(null); await loadAppointments() }
+    try { const service = appointmentServices.find((item) => item.id === editServiceType)!; await api(`/api/appointments/${editing.id}`, { method: 'PATCH', body: JSON.stringify({ patient_id: Number(form.get('patient_id')), professional_id: Number(editProfessionalId), appointment_date: editDate, start_time: editStartTime, end_time: asTime(minutes(editStartTime) + editDuration), service_type: service.id, notes: form.get('notes') || null }) }); setEditing(null); await loadAppointments() }
     catch (item) { setError(item instanceof Error ? item.message : 'Não foi possível editar o agendamento.') } finally { setSaving(false) }
   }
   const changeStatus = async (id: number, status: string) => { try { await api(`/api/appointments/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }); await loadAppointments() } catch (item) { setError(item instanceof Error ? item.message : 'Não foi possível atualizar o status.') } }
