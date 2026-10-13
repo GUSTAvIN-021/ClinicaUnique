@@ -84,7 +84,7 @@ class AppointmentOut(AppointmentIn, ORMModel):
 
 
 class AppointmentStatusIn(BaseModel):
-    status: str = Field(pattern="^(AGENDADO|CONFIRMADO|REALIZADO|FALTOU|CANCELADO)$")
+    status: str = Field(pattern="^(AGENDADO|CONFIRMADO|REALIZADO|FALTOU|FALTOU_PROFISSIONAL|CANCELADO)$")
 
 
 class AvailabilityIn(BaseModel):

@@ -231,7 +231,7 @@ def appointment_status(value: Any) -> AppointmentStatus:
     statuses = {
         "agendado": AppointmentStatus.AGENDADO, "confirmado": AppointmentStatus.CONFIRMADO,
         "presente": AppointmentStatus.REALIZADO, "realizado": AppointmentStatus.REALIZADO,
-        "faltou_paciente": AppointmentStatus.FALTOU, "faltou_profissional": AppointmentStatus.FALTOU,
+        "faltou_paciente": AppointmentStatus.FALTOU, "faltou_profissional": AppointmentStatus.FALTOU_PROFISSIONAL,
         "faltou": AppointmentStatus.FALTOU, "cancelado": AppointmentStatus.CANCELADO,
     }
     return statuses.get(str(value or "").lower(), AppointmentStatus.AGENDADO)

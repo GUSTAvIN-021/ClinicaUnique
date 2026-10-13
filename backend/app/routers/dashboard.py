@@ -24,11 +24,11 @@ def dashboard(db: DbSession, user: CurrentUser):
         "active_professionals": db.scalar(select(func.count()).select_from(Professional).where(Professional.active)) or 0,
         "today_appointments": count(Appointment.appointment_date == today),
         "week_appointments": count(Appointment.appointment_date.between(today, week_end)),
-        "missed": count(Appointment.status == AppointmentStatus.FALTOU),
+        "missed": count(Appointment.status.in_([AppointmentStatus.FALTOU, AppointmentStatus.FALTOU_PROFISSIONAL])),
         "completed": count(Appointment.status == AppointmentStatus.REALIZADO),
         "cancelled": count(Appointment.status == AppointmentStatus.CANCELADO),
         "monthly_completed": count(Appointment.appointment_date >= month_start, Appointment.status == AppointmentStatus.REALIZADO),
-        "monthly_missed": count(Appointment.appointment_date >= month_start, Appointment.status == AppointmentStatus.FALTOU),
+        "monthly_missed": count(Appointment.appointment_date >= month_start, Appointment.status.in_([AppointmentStatus.FALTOU, AppointmentStatus.FALTOU_PROFISSIONAL])),
         "monthly_cancelled": count(Appointment.appointment_date >= month_start, Appointment.status == AppointmentStatus.CANCELADO),
         "monthly_new_patients": db.scalar(monthly_patient_query) or 0,
     }

@@ -75,7 +75,7 @@ def assert_valid_slot(db: Session, appointment: Appointment, excluded_id: int | 
     query = select(Appointment).where(
         Appointment.professional_id == appointment.professional_id,
         Appointment.appointment_date == appointment.appointment_date,
-        Appointment.status.notin_([AppointmentStatus.CANCELADO]),
+        Appointment.status.notin_([AppointmentStatus.CANCELADO, AppointmentStatus.FALTOU, AppointmentStatus.FALTOU_PROFISSIONAL]),
         Appointment.start_time < appointment.end_time,
         Appointment.end_time > appointment.start_time,
     )
