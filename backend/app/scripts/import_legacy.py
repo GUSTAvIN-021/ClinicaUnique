@@ -307,17 +307,69 @@ def import_all(exported: dict[str, list[dict[str, Any]]], apply: bool, included:
                     item = Appointment(patient_id=patient_id, professional_id=professional_id, appointment_date=appointment_date, start_time=start_time, end_time=end_time, status=appointment_status(row.get("status")), notes=row.get("observacoes") or None, recurrence_group_id=str(row.get("grupo_recorrencia") or "")[:36] or None, created_by_id=actor_id, updated_by_id=actor_id)
                     db.add(item); db.flush(); save_mapping(db, "appointment", legacy_id, item.id); link_patient_professional(db, patient_id, professional_id); report.counts["agendamentos_importados"] += 1
             if "records" in included:
+                # Prontuários são o maior conjunto da exportação. Carregamos os
+                # vínculos uma única vez e gravamos em lotes para não fazer várias
+                # viagens ao banco remoto para cada prontuário.
+                db.flush()
+                imported_ids = {
+                    item.legacy_id
+                    for item in db.scalars(
+                        select(LegacyImportMapping).where(
+                            LegacyImportMapping.source == SOURCE,
+                            LegacyImportMapping.entity_type == "medical_record",
+                        )
+                    )
+                }
+                mapped_ids = {
+                    (item.entity_type, item.legacy_id): item.target_id
+                    for item in db.scalars(
+                        select(LegacyImportMapping).where(LegacyImportMapping.source == SOURCE)
+                    )
+                }
+                linked_pairs = set(
+                    db.execute(select(ProfessionalPatient.patient_id, ProfessionalPatient.professional_id)).all()
+                )
+                pending_records: list[tuple[str, MedicalRecord, list[Any]]] = []
+
+                def save_record_batch() -> None:
+                    if not pending_records:
+                        return
+                    db.flush()
+                    db.add_all([
+                        LegacyImportMapping(
+                            source=SOURCE,
+                            entity_type="medical_record",
+                            legacy_id=legacy_id,
+                            target_id=record.id,
+                            details={"legacy_attachments": attachments},
+                        )
+                        for legacy_id, record, attachments in pending_records
+                    ])
+                    pending_records.clear()
+
                 for row in exported["records"]:
                     legacy_id = str(row.get("id", "")).strip()
-                    if not legacy_id or mapping(db, "medical_record", legacy_id): continue
-                    patient_id = target_id(db, "patient", row.get("paciente_id")); professional_id = target_id(db, "professional", row.get("profissional_id"))
+                    if not legacy_id or legacy_id in imported_ids:
+                        continue
+                    patient_id = mapped_ids.get(("patient", str(row.get("paciente_id"))))
+                    professional_id = mapped_ids.get(("professional", str(row.get("profissional_id"))))
                     if not professional_id:
                         professional_id = professional_for_row(db, {"id": row.get("profissional_id"), "profissional_nome": row.get("profissional_nome")}, actor_id, report, orphan=True).id
+                        mapped_ids[("professional", str(row.get("profissional_id")))] = professional_id
                     record_date = parse_legacy_date(row.get("data"))
                     if not patient_id or not professional_id or not record_date or not str(row.get("texto", "")).strip():
                         report.warn(f"Prontuário {legacy_id} ignorado por dados incompletos"); continue
                     item = MedicalRecord(patient_id=patient_id, professional_id=professional_id, record_date=record_date, category="Prontuário legado", content=str(row["texto"]), created_by_id=actor_id, updated_by_id=actor_id)
-                    db.add(item); db.flush(); save_mapping(db, "medical_record", legacy_id, item.id, {"legacy_attachments": row.get("anexos") or []}); link_patient_professional(db, patient_id, professional_id); report.counts["prontuarios_importados"] += 1
+                    db.add(item)
+                    pending_records.append((legacy_id, item, row.get("anexos") or []))
+                    pair = (patient_id, professional_id)
+                    if pair not in linked_pairs:
+                        db.add(ProfessionalPatient(patient_id=patient_id, professional_id=professional_id))
+                        linked_pairs.add(pair)
+                    if len(pending_records) >= 250:
+                        save_record_batch()
+                    report.counts["prontuarios_importados"] += 1
+                save_record_batch()
             db.commit()
         except Exception:
             db.rollback()
