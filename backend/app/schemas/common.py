@@ -1,5 +1,5 @@
 from datetime import date, datetime, time
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ORMModel(BaseModel):
@@ -75,14 +75,7 @@ class AppointmentUpdateIn(BaseModel):
 
 
 class AppointmentRecurrenceIn(AppointmentIn):
-    weeks: int = Field(ge=4, le=24)
-
-    @field_validator("weeks")
-    @classmethod
-    def allowed_recurrence_lengths(cls, value: int) -> int:
-        if value not in {4, 8, 12, 16, 24}:
-            raise ValueError("Escolha 4, 8, 12, 16 ou 24 semanas")
-        return value
+    """A weekly recurrence continues until the series is explicitly ended."""
 
 
 class AppointmentOut(AppointmentIn, ORMModel):

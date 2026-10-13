@@ -1,19 +1,22 @@
-from datetime import date, timedelta
+from datetime import date
 from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
 from app.dependencies.auth import CsrfUser, CurrentUser, DbSession
-from app.models.entities import Appointment, AppointmentStatus, ProfessionalAvailability, Role
+from app.models.entities import Appointment, AppointmentSeries, AppointmentStatus, ProfessionalAvailability, Role
 from app.schemas.common import AppointmentIn, AppointmentOut, AppointmentRecurrenceIn, AppointmentStatusIn, AppointmentUpdateIn, AvailabilityIn, AvailabilityOut
 from app.services.access import assert_patient_access, assert_professional_scope
-from app.services.appointments import assert_valid_slot
+from app.services.appointments import assert_valid_slot, materialize_recurring_appointments
 
 router = APIRouter(tags=["Agenda e disponibilidade"])
 
 
 @router.get("/appointments", response_model=list[AppointmentOut])
 def list_appointments(db: DbSession, user: CurrentUser, date_from: date | None = None, date_to: date | None = None, professional_id: int | None = None, patient_id: int | None = None, status_filter: AppointmentStatus | None = Query(default=None, alias="status")):
+    scoped_professional_id = user.professional_id if user.role == Role.PROFISSIONAL else professional_id
+    if date_from and date_to and materialize_recurring_appointments(db, date_from, date_to, scoped_professional_id):
+        db.commit()
     query = select(Appointment)
     if user.role == Role.PROFISSIONAL:
         query = query.where(Appointment.professional_id == user.professional_id)
@@ -30,6 +33,7 @@ def list_appointments(db: DbSession, user: CurrentUser, date_from: date | None =
 def create_appointment(payload: AppointmentIn, db: DbSession, user: CsrfUser):
     assert_professional_scope(user, payload.professional_id)
     assert_patient_access(db, user, payload.patient_id)
+    materialize_recurring_appointments(db, payload.appointment_date, payload.appointment_date, payload.professional_id)
     appointment = Appointment(**payload.model_dump(), created_by_id=user.id, updated_by_id=user.id)
     assert_valid_slot(db, appointment)
     db.add(appointment); db.commit(); db.refresh(appointment)
@@ -41,24 +45,32 @@ def create_recurring_appointments(payload: AppointmentRecurrenceIn, db: DbSessio
     assert_professional_scope(user, payload.professional_id)
     assert_patient_access(db, user, payload.patient_id)
     recurrence_group_id = str(uuid4())
-    base_data = payload.model_dump(exclude={"weeks"})
-    appointments = [
-        Appointment(
-            **base_data,
-            appointment_date=payload.appointment_date + timedelta(weeks=occurrence),
-            recurrence_group_id=recurrence_group_id,
-            created_by_id=user.id,
-            updated_by_id=user.id,
-        )
-        for occurrence in range(payload.weeks)
-    ]
-    for appointment in appointments:
-        assert_valid_slot(db, appointment)
-    db.add_all(appointments)
+    materialize_recurring_appointments(db, payload.appointment_date, payload.appointment_date, payload.professional_id)
+    base_data = payload.model_dump()
+    series = AppointmentSeries(
+        id=recurrence_group_id,
+        patient_id=payload.patient_id,
+        professional_id=payload.professional_id,
+        starts_on=payload.appointment_date,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        service_type=payload.service_type,
+        amount_cents=payload.amount_cents,
+        notes=payload.notes,
+        created_by_id=user.id,
+        updated_by_id=user.id,
+    )
+    appointment = Appointment(
+        **base_data,
+        recurrence_group_id=recurrence_group_id,
+        created_by_id=user.id,
+        updated_by_id=user.id,
+    )
+    assert_valid_slot(db, appointment)
+    db.add_all([series, appointment])
     db.commit()
-    for appointment in appointments:
-        db.refresh(appointment)
-    return appointments
+    db.refresh(appointment)
+    return [appointment]
 
 
 @router.patch("/appointments/{appointment_id}", response_model=AppointmentOut)
@@ -69,6 +81,7 @@ def update_appointment(appointment_id: int, payload: AppointmentUpdateIn, db: Db
     assert_patient_access(db, user, appointment.patient_id)
     for key, value in payload.model_dump().items(): setattr(appointment, key, value)
     assert_professional_scope(user, appointment.professional_id); assert_patient_access(db, user, appointment.patient_id)
+    materialize_recurring_appointments(db, appointment.appointment_date, appointment.appointment_date, appointment.professional_id)
     assert_valid_slot(db, appointment, appointment_id)
     appointment.updated_by_id = user.id; db.commit(); db.refresh(appointment)
     return appointment
@@ -91,11 +104,17 @@ def cancel_appointment_series(appointment_id: int, db: DbSession, user: CsrfUser
     if not appointment: raise HTTPException(status_code=404, detail="Agendamento não encontrado")
     if not appointment.recurrence_group_id:
         raise HTTPException(status_code=422, detail="Este agendamento não pertence a uma série recorrente")
+    recurrence = db.get(AppointmentSeries, appointment.recurrence_group_id)
+    if recurrence:
+        assert_professional_scope(user, recurrence.professional_id)
+        assert_patient_access(db, user, recurrence.patient_id)
+        recurrence.active = False
+        recurrence.updated_by_id = user.id
     series = db.scalars(select(Appointment).where(Appointment.recurrence_group_id == appointment.recurrence_group_id)).all()
     for item in series:
         assert_professional_scope(user, item.professional_id)
         assert_patient_access(db, user, item.patient_id)
-        if item.status != AppointmentStatus.CANCELADO:
+        if item.appointment_date >= date.today() and item.status != AppointmentStatus.CANCELADO:
             item.status = AppointmentStatus.CANCELADO
             item.updated_by_id = user.id
     db.commit()

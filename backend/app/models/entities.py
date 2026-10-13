@@ -106,6 +106,23 @@ class Appointment(Timestamped):
     __table_args__ = (Index("ix_appointment_professional_slot", "professional_id", "appointment_date", "start_time", "end_time"),)
 
 
+class AppointmentSeries(Timestamped):
+    """Weekly recurrence rule. Instances are created only when a week is viewed."""
+    __tablename__ = "appointment_series"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
+    professional_id: Mapped[int] = mapped_column(ForeignKey("professionals.id"), index=True)
+    starts_on: Mapped[date] = mapped_column(Date, index=True)
+    start_time: Mapped[time] = mapped_column(Time)
+    end_time: Mapped[time] = mapped_column(Time)
+    service_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    amount_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
 class ProfessionalAvailability(Timestamped):
     __tablename__ = "professional_availability"
     id: Mapped[int] = mapped_column(primary_key=True)
