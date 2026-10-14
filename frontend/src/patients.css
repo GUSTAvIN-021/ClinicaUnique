@@ -4,3 +4,4 @@
 .professional-form textarea { width: 100%; padding: .7rem; border: 1px solid #d4dedb; border-radius: 8px; resize: vertical; font: inherit; }
 .check { display: flex; align-items: center; gap: .5rem; }.check input { width: 1rem; height: 1rem; }
 .danger-button { background: #b42318; padding: .45rem .65rem; font-size: .85rem; }
+.table-wrap td:last-child { display: flex; flex-wrap: wrap; gap: .45rem; }.patient-details { margin-top: 1rem; padding: 1rem; border: 1px solid #dce8e3; border-radius: 12px; background: #fff; }.patient-details > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }.patient-details h2 { margin: 0; font-size: 1.1rem; }.patient-details dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .55rem 1rem; margin: 1rem 0 0; }.patient-details dt { color: #61716c; font-weight: 700; }.patient-details dd { margin: 0; overflow-wrap: anywhere; }

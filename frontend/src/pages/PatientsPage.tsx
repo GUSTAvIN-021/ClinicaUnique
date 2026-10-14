@@ -13,6 +13,7 @@ export function PatientsPage() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [selectedProfessionals, setSelectedProfessionals] = useState<number[]>([])
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [page, setPage] = useState(1)
 
   const load = (q = '') => {
@@ -45,7 +46,7 @@ export function PatientsPage() {
     const form = new FormData(formElement)
     try {
       const patient = await api<Patient>('/api/patients', { method: 'POST', body: JSON.stringify({
-        name: form.get('name'), birth_date: form.get('birth_date') || null, cpf: form.get('cpf') || null,
+        name: form.get('name'), birth_date: form.get('birth_date') || null,
         phone: form.get('phone') || null, email: form.get('email') || null, guardian_name: form.get('guardian_name') || null,
         guardian_phone: form.get('guardian_phone') || null, address: form.get('address') || null, notes: form.get('notes') || null,
         accepts_reminders: form.get('accepts_reminders') === 'on', active: true,
@@ -59,7 +60,7 @@ export function PatientsPage() {
   return <>
     <header className="page-heading"><div><h1>Pacientes</h1><p>Cadastros, vínculos e acompanhamento.</p></div></header>
     <details className="registration"><summary>Cadastrar paciente</summary><form className="professional-form" onSubmit={submit}>
-      <div className="entry-form"><input name="name" placeholder="Nome completo" required /><input name="birth_date" type="date" aria-label="Data de nascimento" /><input name="cpf" placeholder="CPF" /><input name="phone" placeholder="Telefone" /><input name="email" type="email" placeholder="E-mail" /><input name="guardian_name" placeholder="Responsável" /><input name="guardian_phone" placeholder="Telefone do responsável" /><input name="address" placeholder="Endereço" /></div>
+      <div className="entry-form"><input name="name" placeholder="Nome completo" required /><input name="birth_date" type="date" aria-label="Data de nascimento" /><input name="phone" placeholder="Telefone" /><input name="email" type="email" placeholder="E-mail" /><input name="guardian_name" placeholder="Responsável" /><input name="guardian_phone" placeholder="Telefone do responsável" /><input name="address" placeholder="Endereço" /></div>
       <textarea name="notes" placeholder="Observações" rows={3} /><label className="check"><input name="accepts_reminders" type="checkbox" defaultChecked /> Aceita lembretes</label>
       <fieldset className="category-picker"><legend>Profissionais vinculados</legend><div>{professionals.map((professional) => <button type="button" className={selectedProfessionals.includes(professional.id) ? 'category selected' : 'category'} onClick={() => toggleProfessional(professional.id)} key={professional.id} aria-pressed={selectedProfessionals.includes(professional.id)}>{professional.name}</button>)}</div></fieldset>
       <button disabled={saving}>{saving ? 'Salvando…' : 'Cadastrar paciente'}</button>
@@ -67,10 +68,11 @@ export function PatientsPage() {
     <form className="toolbar" onSubmit={(event) => { event.preventDefault(); void load(query) }}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nome" /><button>Buscar</button></form>
     {error && <p className="error">{error}</p>}
     <section className="table-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>E-mail</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-      {visiblePatients.map((patient) => <tr key={patient.id}><td>{patient.name}</td><td>{patient.phone ?? '—'}</td><td>{patient.email ?? '—'}</td><td>{patient.active ? 'Ativo' : 'Inativo'}</td><td>{patient.active && <button className="danger-button" onClick={() => void deactivate(patient.id, patient.name)}>Desativar</button>}</td></tr>)}
+      {visiblePatients.map((patient) => <tr key={patient.id}><td>{patient.name}</td><td>{patient.phone ?? '—'}</td><td>{patient.email ?? '—'}</td><td>{patient.active ? 'Ativo' : 'Inativo'}</td><td><button type="button" className="secondary-button" onClick={() => setSelectedPatient(patient)}>Ver dados</button>{patient.active && <button className="danger-button" onClick={() => void deactivate(patient.id, patient.name)}>Desativar</button>}</td></tr>)}
       {!visiblePatients.length && <tr><td colSpan={5}>Nenhum paciente encontrado.</td></tr>}
     </tbody></table></section>
     <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={patients.length} onPageChange={setPage} label="pacientes" />
+    {selectedPatient && <section className="patient-details"><div><h2>{selectedPatient.name}</h2><button type="button" className="secondary-button" onClick={() => setSelectedPatient(null)}>Fechar</button></div><dl><dt>Data de nascimento</dt><dd>{selectedPatient.birth_date ? new Date(`${selectedPatient.birth_date}T12:00:00`).toLocaleDateString('pt-BR') : '—'}</dd><dt>Telefone</dt><dd>{selectedPatient.phone ?? '—'}</dd><dt>E-mail</dt><dd>{selectedPatient.email ?? '—'}</dd><dt>Responsável</dt><dd>{selectedPatient.guardian_name ?? '—'}</dd><dt>Telefone do responsável</dt><dd>{selectedPatient.guardian_phone ?? '—'}</dd><dt>Endereço</dt><dd>{selectedPatient.address ?? '—'}</dd><dt>Observações</dt><dd>{selectedPatient.notes ?? '—'}</dd></dl></section>}
   </>
 }
 

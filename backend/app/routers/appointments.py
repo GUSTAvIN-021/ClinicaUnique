@@ -97,6 +97,20 @@ def update_appointment_status(appointment_id: int, payload: AppointmentStatusIn,
     return appointment
 
 
+@router.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cancelled_appointment(appointment_id: int, db: DbSession, user: CsrfUser):
+    """Remove a cancelled item that is no longer useful in the agenda."""
+    appointment = db.get(Appointment, appointment_id)
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Agendamento não encontrado")
+    assert_professional_scope(user, appointment.professional_id)
+    assert_patient_access(db, user, appointment.patient_id)
+    if appointment.status != AppointmentStatus.CANCELADO:
+        raise HTTPException(status_code=422, detail="Cancele o atendimento antes de excluí-lo definitivamente")
+    db.delete(appointment)
+    db.commit()
+
+
 @router.delete("/appointments/{appointment_id}/series", status_code=status.HTTP_204_NO_CONTENT)
 def cancel_appointment_series(appointment_id: int, db: DbSession, user: CsrfUser):
     appointment = db.get(Appointment, appointment_id)
