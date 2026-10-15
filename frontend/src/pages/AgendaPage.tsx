@@ -48,6 +48,7 @@ export function AgendaPage() {
   const [isRecurring, setIsRecurring] = useState(false)
   const [editing, setEditing] = useState<Appointment | null>(null)
   const editSectionRef = useRef<HTMLElement | null>(null)
+  const [editScrollVersion, setEditScrollVersion] = useState(0)
   const [therapistActionAppointment, setTherapistActionAppointment] = useState<Appointment | null>(null)
   const [editProfessionalId, setEditProfessionalId] = useState('')
   const [editDate, setEditDate] = useState('')
@@ -82,7 +83,13 @@ export function AgendaPage() {
   useEffect(() => { void loadAppointments().catch((item: Error) => setError(item.message)) }, [referenceDate, effectiveFilter])
   useEffect(() => { setStartTime(''); loadAvailability(selectedProfessionalId, setAvailability) }, [selectedProfessionalId])
   useEffect(() => { if (editing) loadAvailability(editProfessionalId, setEditAvailability) }, [editing, editProfessionalId])
-  useEffect(() => { if (editing) editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [editing])
+  useEffect(() => {
+    if (!editing) return
+    const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }))
+    return () => window.cancelAnimationFrame(frame)
+  }, [editScrollVersion])
 
   const slotsFor = (professionalId: string, appointmentDate: string, selectedDuration: number, items: Availability[], ignoredId?: number) => {
     if (!professionalId || !appointmentDate) return []
@@ -110,7 +117,7 @@ export function AgendaPage() {
   const beginEdit = (appointment: Appointment) => {
     const currentDuration = minutes(appointment.end_time) - minutes(appointment.start_time)
     const service = appointmentServices.find((item) => item.id === appointment.service_type) ?? appointmentServices.find((item) => item.duration === currentDuration) ?? appointmentServices[0]
-    setEditing(appointment); setEditProfessionalId(String(appointment.professional_id)); setEditDate(appointment.appointment_date); setEditStartTime(appointment.start_time.slice(0, 5)); setEditServiceType(service.id); setEditDuration(service.duration); setError('')
+    setEditing(appointment); setEditProfessionalId(String(appointment.professional_id)); setEditDate(appointment.appointment_date); setEditStartTime(appointment.start_time.slice(0, 5)); setEditServiceType(service.id); setEditDuration(service.duration); setEditScrollVersion((current) => current + 1); setError('')
   }
   const saveEdit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (!editing || !editProfessionalId || !editStartTime) { setError('Preencha os dados do agendamento.'); return }
