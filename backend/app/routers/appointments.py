@@ -92,7 +92,14 @@ def update_appointment_status(appointment_id: int, payload: AppointmentStatusIn,
     if not appointment: raise HTTPException(status_code=404, detail="Agendamento não encontrado")
     assert_professional_scope(user, appointment.professional_id)
     assert_patient_access(db, user, appointment.patient_id)
+    previous_status = appointment.status
     appointment.status = AppointmentStatus(payload.status)
+    if appointment.status not in {AppointmentStatus.CANCELADO, AppointmentStatus.FALTOU, AppointmentStatus.FALTOU_PROFISSIONAL}:
+        try:
+            assert_valid_slot(db, appointment, appointment_id)
+        except HTTPException:
+            appointment.status = previous_status
+            raise
     appointment.updated_by_id = user.id; db.commit(); db.refresh(appointment)
     return appointment
 
