@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.entities import ProfessionalPatient, Role, User
+from app.models.entities import Appointment, ProfessionalPatient, Role, User
 
 
 def assert_patient_access(db: Session, user: User, patient_id: int) -> None:

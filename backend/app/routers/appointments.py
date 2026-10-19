@@ -31,6 +31,7 @@ def list_appointments(db: DbSession, user: CurrentUser, date_from: date | None =
 
 @router.post("/appointments", response_model=AppointmentOut, status_code=status.HTTP_201_CREATED)
 def create_appointment(payload: AppointmentIn, db: DbSession, user: CsrfUser):
+    if user.role != Role.ADMIN: raise HTTPException(status_code=403, detail="Somente a administração pode criar agendamentos")
     assert_professional_scope(user, payload.professional_id)
     assert_patient_access(db, user, payload.patient_id)
     materialize_recurring_appointments(db, payload.appointment_date, payload.appointment_date, payload.professional_id)
@@ -42,6 +43,7 @@ def create_appointment(payload: AppointmentIn, db: DbSession, user: CsrfUser):
 
 @router.post("/appointments/recurring", response_model=list[AppointmentOut], status_code=status.HTTP_201_CREATED)
 def create_recurring_appointments(payload: AppointmentRecurrenceIn, db: DbSession, user: CsrfUser):
+    if user.role != Role.ADMIN: raise HTTPException(status_code=403, detail="Somente a administração pode criar agendamentos")
     assert_professional_scope(user, payload.professional_id)
     assert_patient_access(db, user, payload.patient_id)
     recurrence_group_id = str(uuid4())
@@ -74,6 +76,7 @@ def create_recurring_appointments(payload: AppointmentRecurrenceIn, db: DbSessio
 
 @router.patch("/appointments/{appointment_id}", response_model=AppointmentOut)
 def update_appointment(appointment_id: int, payload: AppointmentUpdateIn, db: DbSession, user: CsrfUser):
+    if user.role != Role.ADMIN: raise HTTPException(status_code=403, detail="Somente a administração pode alterar horário ou paciente")
     appointment = db.get(Appointment, appointment_id)
     if not appointment: raise HTTPException(status_code=404, detail="Agendamento não encontrado")
     assert_professional_scope(user, appointment.professional_id)
@@ -107,6 +110,7 @@ def update_appointment_status(appointment_id: int, payload: AppointmentStatusIn,
 @router.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_cancelled_appointment(appointment_id: int, db: DbSession, user: CsrfUser):
     """Remove a cancelled item that is no longer useful in the agenda."""
+    if user.role != Role.ADMIN: raise HTTPException(status_code=403, detail="Somente a administração pode excluir agendamentos")
     appointment = db.get(Appointment, appointment_id)
     if not appointment:
         raise HTTPException(status_code=404, detail="Agendamento não encontrado")
@@ -120,6 +124,7 @@ def delete_cancelled_appointment(appointment_id: int, db: DbSession, user: CsrfU
 
 @router.delete("/appointments/{appointment_id}/series", status_code=status.HTTP_204_NO_CONTENT)
 def cancel_appointment_series(appointment_id: int, db: DbSession, user: CsrfUser):
+    if user.role != Role.ADMIN: raise HTTPException(status_code=403, detail="Somente a administração pode encerrar recorrências")
     appointment = db.get(Appointment, appointment_id)
     if not appointment: raise HTTPException(status_code=404, detail="Agendamento não encontrado")
     if not appointment.recurrence_group_id:
