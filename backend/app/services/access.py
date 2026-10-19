@@ -14,7 +14,11 @@ def assert_patient_access(db: Session, user: User, patient_id: int) -> None:
         ProfessionalPatient.professional_id == user.professional_id,
         ProfessionalPatient.patient_id == patient_id,
     ))
-    if not linked:
+    scheduled_with_professional = db.scalar(select(Appointment.id).where(
+        Appointment.professional_id == user.professional_id,
+        Appointment.patient_id == patient_id,
+    ).limit(1))
+    if not linked and not scheduled_with_professional:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso não autorizado ao paciente")
 
 

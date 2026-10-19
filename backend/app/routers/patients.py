@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import select, union
 
 from app.dependencies.auth import CsrfUser, CurrentUser, DbSession
-from app.models.entities import Patient, ProfessionalPatient, Role
+from app.models.entities import Appointment, Patient, ProfessionalPatient, Role
 from app.schemas.common import PatientIn, PatientOut
 from app.services.access import assert_patient_access
 
@@ -13,7 +13,11 @@ router = APIRouter(prefix="/patients", tags=["Pacientes"])
 def list_patients(db: DbSession, user: CurrentUser, q: str | None = Query(default=None, max_length=100), active: bool | None = None):
     query = select(Patient)
     if user.role == Role.PROFISSIONAL:
-        query = query.join(ProfessionalPatient, ProfessionalPatient.patient_id == Patient.id).where(ProfessionalPatient.professional_id == user.professional_id)
+        linked_patient_ids = union(
+            select(ProfessionalPatient.patient_id).where(ProfessionalPatient.professional_id == user.professional_id),
+            select(Appointment.patient_id).where(Appointment.professional_id == user.professional_id),
+        )
+        query = query.where(Patient.id.in_(linked_patient_ids))
     if q:
         query = query.where(Patient.name.ilike(f"%{q.strip()}%"))
     if active is not None:
