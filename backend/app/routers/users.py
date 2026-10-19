@@ -20,6 +20,12 @@ class AdminPasswordChange(BaseModel):
     new_password: str = Field(min_length=12, max_length=128)
 
 
+class UpdateProfessionalUser(BaseModel):
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=12, max_length=128)
+    active: bool | None = None
+
+
 def admin_only(user: User) -> User:
     if user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
@@ -58,3 +64,30 @@ def set_active(user_id: int, active: bool, db: DbSession, user: CsrfUser):
     if not target: raise HTTPException(status_code=404, detail="Usuário não encontrado")
     target.active = active; db.commit(); db.refresh(target)
     return target
+
+
+@router.patch("/{user_id}", response_model=UserOut)
+def update_professional_user(user_id: int, payload: UpdateProfessionalUser, db: DbSession, user: CsrfUser):
+    admin_only(user)
+    target = db.get(User, user_id)
+    if not target: raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if target.role == Role.ADMIN: raise HTTPException(status_code=403, detail="O acesso de administrador não pode ser alterado por esta tela")
+    if payload.email is not None:
+        email = payload.email.lower()
+        existing = db.scalar(select(User).where(User.email == email, User.id != user_id))
+        if existing: raise HTTPException(status_code=409, detail="E-mail já está em uso")
+        target.email = email
+    if payload.password: target.password_hash = hash_password(payload.password)
+    if payload.active is not None: target.active = payload.active
+    db.commit(); db.refresh(target)
+    return target
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_professional_user(user_id: int, db: DbSession, user: CsrfUser):
+    admin_only(user)
+    target = db.get(User, user_id)
+    if not target: raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if target.role == Role.ADMIN: raise HTTPException(status_code=403, detail="O acesso de administrador não pode ser excluído")
+    db.delete(target)
+    db.commit()
