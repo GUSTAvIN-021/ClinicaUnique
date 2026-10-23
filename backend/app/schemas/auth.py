@@ -5,6 +5,7 @@ from app.models.entities import Role
 class LoginRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=8, max_length=128)
+    totp_code: str | None = Field(default=None, min_length=6, max_length=8)
 
     @field_validator("email")
     @classmethod
@@ -21,12 +22,21 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=12, max_length=128)
 
 
+class CurrentPasswordRequest(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)
+
+
+class TotpCodeRequest(BaseModel):
+    totp_code: str = Field(min_length=6, max_length=8)
+
+
 class UserOut(BaseModel):
     id: int
     email: str
     role: Role
     active: bool
     professional_id: int | None
+    mfa_enabled: bool = False
 
     class Config:
         from_attributes = True

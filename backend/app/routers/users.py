@@ -6,6 +6,7 @@ from app.core.security import hash_password
 from app.dependencies.auth import CsrfUser, CurrentUser, DbSession
 from app.models.entities import Professional, Role, User
 from app.schemas.auth import UserOut
+from app.services.audit import record_audit
 
 router = APIRouter(prefix="/users", tags=["Usuários"])
 
@@ -45,7 +46,9 @@ def create_user(payload: CreateProfessionalUser, db: DbSession, user: CsrfUser):
     if db.scalar(select(User).where(User.email == payload.email.lower())): raise HTTPException(status_code=409, detail="E-mail já está em uso")
     if db.scalar(select(User).where(User.professional_id == payload.professional_id)): raise HTTPException(status_code=409, detail="Profissional já possui acesso")
     item = User(email=payload.email.lower(), password_hash=hash_password(payload.password), role=Role.PROFISSIONAL, professional_id=payload.professional_id)
-    db.add(item); db.commit(); db.refresh(item)
+    db.add(item); db.flush()
+    record_audit(db, actor=user, action="user.created", resource_type="user", resource_id=item.id, details={"role": item.role.value, "professional_id": item.professional_id})
+    db.commit(); db.refresh(item)
     return item
 
 
@@ -54,7 +57,9 @@ def admin_change_password(user_id: int, payload: AdminPasswordChange, db: DbSess
     admin_only(user)
     target = db.get(User, user_id)
     if not target: raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    target.password_hash = hash_password(payload.new_password); db.commit()
+    target.password_hash = hash_password(payload.new_password); target.token_version += 1
+    record_audit(db, actor=user, action="user.password_reset", resource_type="user", resource_id=target.id)
+    db.commit()
 
 
 @router.patch("/{user_id}/active", response_model=UserOut)
@@ -62,7 +67,9 @@ def set_active(user_id: int, active: bool, db: DbSession, user: CsrfUser):
     admin_only(user)
     target = db.get(User, user_id)
     if not target: raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    target.active = active; db.commit(); db.refresh(target)
+    target.active = active; target.token_version += 1
+    record_audit(db, actor=user, action="user.access_changed", resource_type="user", resource_id=target.id, details={"active": active})
+    db.commit(); db.refresh(target)
     return target
 
 
@@ -77,8 +84,17 @@ def update_professional_user(user_id: int, payload: UpdateProfessionalUser, db: 
         existing = db.scalar(select(User).where(User.email == email, User.id != user_id))
         if existing: raise HTTPException(status_code=409, detail="E-mail já está em uso")
         target.email = email
-    if payload.password: target.password_hash = hash_password(payload.password)
-    if payload.active is not None: target.active = payload.active
+    changed_fields = []
+    if payload.password:
+        target.password_hash = hash_password(payload.password)
+        target.token_version += 1
+        changed_fields.append("password")
+    if payload.email is not None: changed_fields.append("email")
+    if payload.active is not None:
+        target.active = payload.active
+        target.token_version += 1
+        changed_fields.append("active")
+    record_audit(db, actor=user, action="user.updated", resource_type="user", resource_id=target.id, details={"fields": changed_fields})
     db.commit(); db.refresh(target)
     return target
 
@@ -89,5 +105,6 @@ def delete_professional_user(user_id: int, db: DbSession, user: CsrfUser):
     target = db.get(User, user_id)
     if not target: raise HTTPException(status_code=404, detail="Usuário não encontrado")
     if target.role == Role.ADMIN: raise HTTPException(status_code=403, detail="O acesso de administrador não pode ser excluído")
+    record_audit(db, actor=user, action="user.deleted", resource_type="user", resource_id=target.id, details={"role": target.role.value})
     db.delete(target)
     db.commit()

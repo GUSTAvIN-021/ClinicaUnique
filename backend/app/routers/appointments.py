@@ -8,6 +8,7 @@ from app.models.entities import Appointment, AppointmentSeries, AppointmentStatu
 from app.schemas.common import AppointmentIn, AppointmentOut, AppointmentRecurrenceIn, AppointmentStatusIn, AppointmentUpdateIn, AvailabilityIn, AvailabilityOut
 from app.services.access import assert_patient_access, assert_professional_scope
 from app.services.appointments import assert_valid_slot, materialize_recurring_appointments
+from app.services.audit import record_audit
 
 router = APIRouter(tags=["Agenda e disponibilidade"])
 
@@ -37,7 +38,9 @@ def create_appointment(payload: AppointmentIn, db: DbSession, user: CsrfUser):
     materialize_recurring_appointments(db, payload.appointment_date, payload.appointment_date, payload.professional_id)
     appointment = Appointment(**payload.model_dump(), created_by_id=user.id, updated_by_id=user.id)
     assert_valid_slot(db, appointment)
-    db.add(appointment); db.commit(); db.refresh(appointment)
+    db.add(appointment); db.flush()
+    record_audit(db, actor=user, action="appointment.created", resource_type="appointment", resource_id=appointment.id, details={"professional_id": appointment.professional_id})
+    db.commit(); db.refresh(appointment)
     return appointment
 
 
@@ -68,7 +71,8 @@ def create_recurring_appointments(payload: AppointmentRecurrenceIn, db: DbSessio
         updated_by_id=user.id,
     )
     assert_valid_slot(db, appointment)
-    db.add_all([series, appointment])
+    db.add_all([series, appointment]); db.flush()
+    record_audit(db, actor=user, action="appointment.series_created", resource_type="appointment_series", resource_id=series.id, details={"professional_id": series.professional_id})
     db.commit()
     db.refresh(appointment)
     return [appointment]
@@ -85,7 +89,9 @@ def update_appointment(appointment_id: int, payload: AppointmentUpdateIn, db: Db
     assert_professional_scope(user, appointment.professional_id); assert_patient_access(db, user, appointment.patient_id)
     materialize_recurring_appointments(db, appointment.appointment_date, appointment.appointment_date, appointment.professional_id)
     assert_valid_slot(db, appointment, appointment_id)
-    appointment.updated_by_id = user.id; db.commit(); db.refresh(appointment)
+    appointment.updated_by_id = user.id
+    record_audit(db, actor=user, action="appointment.updated", resource_type="appointment", resource_id=appointment.id)
+    db.commit(); db.refresh(appointment)
     return appointment
 
 
@@ -103,7 +109,9 @@ def update_appointment_status(appointment_id: int, payload: AppointmentStatusIn,
         except HTTPException:
             appointment.status = previous_status
             raise
-    appointment.updated_by_id = user.id; db.commit(); db.refresh(appointment)
+    appointment.updated_by_id = user.id
+    record_audit(db, actor=user, action="appointment.status_changed", resource_type="appointment", resource_id=appointment.id, details={"from": previous_status.value, "to": appointment.status.value})
+    db.commit(); db.refresh(appointment)
     return appointment
 
 
@@ -118,6 +126,7 @@ def delete_cancelled_appointment(appointment_id: int, db: DbSession, user: CsrfU
     assert_patient_access(db, user, appointment.patient_id)
     if appointment.status != AppointmentStatus.CANCELADO:
         raise HTTPException(status_code=422, detail="Cancele o atendimento antes de excluí-lo definitivamente")
+    record_audit(db, actor=user, action="appointment.deleted", resource_type="appointment", resource_id=appointment.id)
     db.delete(appointment)
     db.commit()
 
@@ -142,6 +151,7 @@ def cancel_appointment_series(appointment_id: int, db: DbSession, user: CsrfUser
         if item.appointment_date >= date.today() and item.status != AppointmentStatus.CANCELADO:
             item.status = AppointmentStatus.CANCELADO
             item.updated_by_id = user.id
+    record_audit(db, actor=user, action="appointment.series_cancelled", resource_type="appointment_series", resource_id=appointment.recurrence_group_id)
     db.commit()
 
 

@@ -34,6 +34,11 @@ class User(Timestamped):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(SqlEnum(Role), index=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # A mudança deste número invalida imediatamente todos os cookies antigos.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # O segredo TOTP nunca é enviado ao navegador depois da configuração.
+    mfa_secret: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     professional_id: Mapped[int | None] = mapped_column(ForeignKey("professionals.id", ondelete="SET NULL"), unique=True, nullable=True)
 
 

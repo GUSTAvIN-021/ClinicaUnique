@@ -1,5 +1,5 @@
 export type Role = 'ADMIN' | 'PROFISSIONAL'
-export interface User { id: number; email: string; role: Role; active: boolean; professional_id: number | null }
+export interface User { id: number; email: string; role: Role; active: boolean; professional_id: number | null; mfa_enabled: boolean }
 export interface Patient { id: number; name: string; birth_date: string | null; cpf: string | null; phone: string | null; email: string | null; address: string | null; guardian_name: string | null; guardian_phone: string | null; notes: string | null; active: boolean; accepts_reminders: boolean; created_at: string; updated_at: string }
 export interface Appointment { id: number; patient_id: number; professional_id: number; appointment_date: string; start_time: string; end_time: string; status: string; service_type: string | null; notes: string | null; recurrence_group_id: string | null }
 export interface Dashboard { patients: number; active_professionals: number; today_appointments: number; week_appointments: number; missed: number; completed: number; cancelled: number; monthly_completed: number; monthly_missed: number; monthly_cancelled: number; monthly_new_patients: number }
